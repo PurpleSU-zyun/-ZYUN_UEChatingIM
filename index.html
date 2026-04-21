@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IM 即时通讯</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f0f13;
+    --sidebar: #1a1a24;
+    --panel: #16161f;
+    --card: #1e1e2e;
+    --border: #2a2a3a;
+    --accent: #7c6af7;
+    --accent2: #5e52d0;
+    --text: #e0e0f0;
+    --sub: #888899;
+    --online: #3ddc84;
+    --danger: #ff4f6a;
+    --warn: #ffb84d;
+    --msg-bg: #252535;
+    --my-msg: #2e2b5f;
+    --sys: #333348;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ===== 登录页 ===== */
+  #login-screen {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 60% 40%, #1a1040 0%, #0f0f13 60%);
+  }
+  .login-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 40px 48px; width: 360px; box-shadow: 0 8px 40px #0008;
+  }
+  .login-box h1 { font-size: 26px; margin-bottom: 6px; color: var(--accent); }
+  .login-box p { color: var(--sub); font-size: 13px; margin-bottom: 28px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+  .form-group input {
+    width: 100%; padding: 10px 14px; background: var(--sidebar); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; outline: none; transition: border .2s;
+  }
+  .form-group input:focus { border-color: var(--accent); }
+  .login-btn {
+    width: 100%; padding: 11px; background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background .2s;
+  }
+  .login-btn:hover { background: var(--accent2); }
+  .login-hint { font-size: 12px; color: var(--sub); margin-top: 14px; text-align: center; }
+  #login-error { color: var(--danger); font-size: 13px; margin-top: 10px; text-align: center; min-height: 18px; }
+
+  /* ===== 主界面 ===== */
+  #main-screen { flex: 1; display: none; flex-direction: row; overflow: hidden; }
+
+  /* 左侧边栏 */
+  .sidebar {
+    width: 240px; background: var(--sidebar); display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+  .sidebar-header {
+    padding: 16px 16px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .user-info { flex: 1; min-width: 0; }
+  .user-info .name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-info .role { font-size: 11px; color: var(--accent); }
+  .admin-badge { background: #ff9d1a22; color: var(--warn); font-size: 10px; padding: 2px 6px; border-radius: 10px; border: 1px solid #ff9d1a44; }
+
+  .sidebar-section { padding: 10px 12px 4px; font-size: 11px; color: var(--sub); letter-spacing: .08em; text-transform: uppercase; }
+  .sidebar-item {
+    padding: 9px 12px; border-radius: 8px; margin: 1px 6px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; font-size: 13px; transition: background .15s;
+    user-select: none;
+  }
+  .sidebar-item:hover { background: var(--card); }
+  .sidebar-item.active { background: var(--accent)22; color: var(--accent); }
+  .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-item .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { background: var(--danger); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 10px; font-weight: 700; min-width: 16px; text-align: center; }
+
+  .online-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--online); flex-shrink: 0; }
+  .offline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sub); flex-shrink: 0; }
+
+  .sidebar-footer {
+    margin-top: auto; padding: 10px 6px; border-top: 1px solid var(--border); display: flex; gap: 4px;
+  }
+  .footer-btn {
+    flex: 1; padding: 8px; background: none; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--sub); font-size: 12px; cursor: pointer; transition: all .15s; text-align: center;
+  }
+  .footer-btn:hover { background: var(--card); color: var(--text); }
+  #admin-btn { display: none; color: var(--warn); border-color: #ff9d1a44; }
+  #admin-btn:hover { background: #ff9d1a11; }
+
+  /* 中间：聊天区 */
+  .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+  .chat-header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .chat-header .chat-title { font-size: 16px; font-weight: 600; }
+  .chat-header .chat-sub { font-size: 12px; color: var(--sub); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+  .hdr-btn { background: none; border: 1px solid var(--border); color: var(--sub); padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .15s; }
+  .hdr-btn:hover { background: var(--card); color: var(--text); }
+
+  #messages {
+    flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px;
+  }
+  #messages::-webkit-scrollbar { width: 4px; }
+  #messages::-webkit-scrollbar-track { background: transparent; }
+  #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg { display: flex; gap: 10px; max-width: 75%; animation: fadeIn .2s ease; }
+  .msg.self { flex-direction: row-reverse; align-self: flex-end; }
+  .msg.system-msg { align-self: center; max-width: 90%; }
+  .msg.announcement { align-self: stretch; max-width: 100%; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+  .msg-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .msg-body { display: flex; flex-direction: column; gap: 3px; }
+  .msg-meta { font-size: 11px; color: var(--sub); display: flex; gap: 6px; align-items: center; }
+  .msg.self .msg-meta { flex-direction: row-reverse; }
+  .msg-name { font-weight: 600; color: var(--text); }
+  .msg-time { color: var(--sub); }
+  .admin-tag { color: var(--warn); font-size: 10px; background: #ff9d1a22; padding: 1px 4px; border-radius: 4px; }
+
+  .msg-bubble {
+    padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5;
+    word-break: break-word; background: var(--msg-bg);
+  }
+  .msg.self .msg-bubble { background: var(--my-msg); }
+  .msg-bubble.system { background: var(--sys); color: var(--sub); font-size: 12px; text-align: center; padding: 5px 14px; border-radius: 20px; }
+  .msg-bubble.announce {
+    background: linear-gradient(135deg, #2d1f5e, #1e1e2e); border: 1px solid var(--accent);
+    padding: 10px 16px; border-radius: 10px; width: 100%;
+  }
+  .announce-label { font-size: 11px; color: var(--accent); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+  .private-tag { font-size: 11px; color: #ff7eb3; background: #ff7eb322; padding: 1px 5px; border-radius: 4px; }
+  .group-tag { font-size: 11px; color: #7eb3ff; background: #7eb3ff22; padding: 1px 5px; border-radius: 4px; }
+
+  /* 输入区 */
+  .input-area {
+    padding: 12px 16px; border-top: 1px solid var(--border); background: var(--panel);
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+  .input-wrapper { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  #msg-input {
+    width: 100%; padding: 10px 14px; background: transparent; border: none; color: var(--text);
+    font-size: 14px; outline: none; resize: none; max-height: 120px; min-height: 40px; line-height: 1.5;
+    font-family: inherit;
+  }
+  .send-btn {
+    padding: 10px 20px; background: var(--accent); border: none; border-radius: 10px;
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s;
+    white-space: nowrap;
+  }
+  .send-btn:hover { background: var(--accent2); }
+  .send-btn:disabled { background: var(--border); cursor: not-allowed; }
+  .input-hint { font-size: 11px; color: var(--sub); padding: 0 14px 6px; }
+
+  /* 右侧面板（用户列表） */
+  .right-panel {
+    width: 200px; background: var(--sidebar); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .right-panel-header { padding: 14px 14px 10px; font-size: 12px; color: var(--sub); letter-spacing: .06em; border-bottom: 1px solid var(--border); }
+  #user-list-panel { flex: 1; overflow-y: auto; padding: 6px; }
+  #user-list-panel::-webkit-scrollbar { width: 3px; }
+  #user-list-panel::-webkit-scrollbar-thumb { background: var(--border); }
+  .user-item {
+    padding: 7px 8px; border-radius: 6px; cursor: pointer; display: flex; align-items: center;
+    gap: 8px; transition: background .15s; font-size: 13px;
+  }
+  .user-item:hover { background: var(--card); }
+  .user-item .u-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-item .muted-tag { font-size: 10px; color: var(--danger); }
+
+  /* ===== 管理员面板弹窗 ===== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: #0009; z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    width: 700px; max-width: 95vw; max-height: 85vh; overflow: hidden;
+    display: flex; flex-direction: column; box-shadow: 0 20px 60px #0008;
+  }
+  .modal-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header h2 { font-size: 18px; color: var(--text); }
+  .modal-close { background: none; border: none; color: var(--sub); font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .modal-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .modal-tab {
+    padding: 8px 16px; background: none; border: none; color: var(--sub); font-size: 13px;
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s;
+  }
+  .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .admin-section { margin-bottom: 24px; }
+  .admin-section h3 { font-size: 14px; color: var(--sub); margin-bottom: 12px; letter-spacing: .05em; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .admin-table th { text-align: left; padding: 8px 10px; color: var(--sub); font-weight: 500; border-bottom: 1px solid var(--border); }
+  .admin-table td { padding: 8px 10px; border-bottom: 1px solid var(--border)88; vertical-align: middle; }
+  .admin-table tr:hover td { background: var(--sidebar); }
+  .act-btn {
+    padding: 4px 10px; border: 1px solid; border-radius: 5px; font-size: 12px; cursor: pointer;
+    background: none; transition: all .15s; margin-right: 4px;
+  }
+  .act-btn.kick { color: var(--danger); border-color: var(--danger)66; }
+  .act-btn.kick:hover { background: var(--danger)22; }
+  .act-btn.mute { color: var(--warn); border-color: var(--warn)66; }
+  .act-btn.mute:hover { background: var(--warn)22; }
+  .act-btn.ban { color: #ff6b6b; border-color: #ff6b6b66; }
+  .act-btn.ban:hover { background: #ff6b6b22; }
+  .act-btn.safe { color: var(--online); border-color: var(--online)66; }
+  .act-btn.safe:hover { background: var(--online)22; }
+  .act-btn.invite { color: #7eb3ff; border-color: #7eb3ff66; }
+  .act-btn.invite:hover { background: #7eb3ff22; }
+  .act-btn.del { color: var(--danger); border-color: var(--danger)66; }
+  .act-btn.del:hover { background: var(--danger)22; }
+
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .form-row input, .form-row select {
+    flex: 1; padding: 9px 12px; background: var(--sidebar); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+  .form-row button {
+    padding: 9px 18px; background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .form-row button:hover { background: var(--accent2); }
+  .danger-btn { background: var(--danger) !important; }
+  .danger-btn:hover { background: #cc3355 !important; }
+
+  textarea.announce-input {
+    width: 100%; padding: 10px 12px; background: var(--sidebar); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; resize: vertical; min-height: 80px;
+    outline: none; font-family: inherit; margin-bottom: 10px;
+  }
+  textarea.announce-input:focus { border-color: var(--accent); }
+  .full-btn {
+    width: 100%; padding: 10px; background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .full-btn:hover { background: var(--accent2); }
+
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .dot-on { background: var(--online); }
+  .dot-muted { background: var(--danger); }
+
+  /* 连接状态 */
+  #conn-bar { padding: 6px 20px; font-size: 12px; text-align: center; background: #ff4f6a22; color: var(--danger); border-bottom: 1px solid var(--danger)44; display: none; }
+  #conn-bar.show { display: block; }
+
+  /* 滚动按钮 */
+  #scroll-btn {
+    position: fixed; bottom: 80px; right: 220px; background: var(--accent); color: #fff;
+    border: none; border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+    display: none; z-index: 10; box-shadow: 0 4px 12px #0005;
+  }
+
+  @media (max-width: 768px) {
+    .right-panel { display: none; }
+    .sidebar { width: 200px; }
+    .modal { width: 95vw; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 连接状态条 -->
+<div id="conn-bar">⚠️ 与服务器断开连接，正在重连...</div>
+
+<!-- ===== 登录页 ===== -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>💬 IM 聊天室</h1>
+    <p>即时通讯 · 群组聊天 · 私信</p>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="username" placeholder="请输入用户名" maxlength="20" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>管理员密码 <span style="color:var(--sub);font-size:11px">（普通用户留空）</span></label>
+      <input type="password" id="admin-pass" placeholder="管理员专用，普通用户不填">
+    </div>
+    <button class="login-btn" onclick="login()">进入聊天室</button>
+    <div id="login-error"></div>
+    <div class="login-hint">服务器地址: <span id="ws-addr">ws://zyun.ink:9100</span></div>
+  </div>
+</div>
+
+<!-- ===== 主界面 ===== -->
+<div id="main-screen">
+  <!-- 左侧边栏 -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="avatar" id="my-avatar">?</div>
+      <div class="user-info">
+        <div class="name" id="my-username">未登录</div>
+        <div class="role" id="my-role">在线</div>
+      </div>
+    </div>
+
+    <!-- 频道 -->
+    <div class="sidebar-section">频道</div>
+    <div class="sidebar-item active" id="tab-public" onclick="switchChannel('public')">
+      <span class="icon">🌐</span>
+      <span class="label">公共大厅</span>
+    </div>
+
+    <!-- 群组 -->
+    <div class="sidebar-section">群组</div>
+    <div id="group-list"></div>
+
+    <!-- 私信 -->
+    <div class="sidebar-section">私信</div>
+    <div id="dm-list"></div>
+
+    <div class="sidebar-footer">
+      <button class="footer-btn" onclick="refreshLists()">🔄 刷新</button>
+      <button class="footer-btn" id="admin-btn" onclick="openAdmin()">⚙️ 管理</button>
+      <button class="footer-btn" onclick="logout()" style="color:var(--danger)">退出</button>
+    </div>
+  </div>
+
+  <!-- 聊天区 -->
+  <div class="chat-area">
+    <div class="chat-header">
+      <div>
+        <div class="chat-title" id="chat-title">公共大厅</div>
+        <div class="chat-sub" id="chat-sub">欢迎</div>
+      </div>
+      <div class="header-actions">
+        <button class="hdr-btn" id="join-group-btn" style="display:none" onclick="joinCurrentGroup()">加入群组</button>
+      </div>
+    </div>
+    <div id="messages"></div>
+    <div class="input-area">
+      <div class="input-wrapper">
+        <textarea id="msg-input" placeholder="输入消息，Enter发送，Shift+Enter换行..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <div class="input-hint" id="input-hint">当前：公共大厅</div>
+      </div>
+      <button class="send-btn" onclick="sendMessage()">发送</button>
+    </div>
+  </div>
+
+  <!-- 右侧用户列表 -->
+  <div class="right-panel">
+    <div class="right-panel-header">在线用户 (<span id="online-count">0</span>)</div>
+    <div id="user-list-panel"></div>
+  </div>
+</div>
+
+<!-- 向下滚动提示 -->
+<button id="scroll-btn" onclick="scrollToBottom(true)">↓ 新消息</button>
+
+<!-- ===== 管理员面板弹窗 ===== -->
+<div class="modal-overlay" id="admin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚙️ 管理员面板</h2>
+      <button class="modal-close" onclick="closeAdmin()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchTab('tab-users')">👥 用户管理</button>
+        <button class="modal-tab" onclick="switchTab('tab-groups')">💬 群组管理</button>
+        <button class="modal-tab" onclick="switchTab('tab-announce')">📢 全体公告</button>
+        <button class="modal-tab" onclick="switchTab('tab-ban')">🚫 封禁管理</button>
+      </div>
+
+      <!-- 用户管理 -->
+      <div class="tab-content active" id="tab-users">
+        <div class="admin-section">
+          <h3>在线用户</h3>
+          <table class="admin-table">
+            <thead><tr><th>用户名</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="admin-user-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 群组管理 -->
+      <div class="tab-content" id="tab-groups">
+        <div class="admin-section">
+          <h3>创建新群组</h3>
+          <div class="form-row">
+            <input type="text" id="new-group-name" placeholder="群组名称（最多30字符）" maxlength="30">
+            <button onclick="adminCreateGroup()">创建</button>
+          </div>
+        </div>
+        <div class="admin-section">
+          <h3>群组列表</h3>
+          <table class="admin-table">
+            <thead><tr><th>群组名</th><th>成员数</th><th>操作</th></tr></thead>
+            <tbody id="admin-group-table"></tbody>
+          </table>
+        </div>
+        <div class="admin-section">
+          <h3>邀请用户加入群组</h3>
+          <div class="form-row">
+            <select id="invite-user-sel"></select>
+            <select id="invite-group-sel"></select>
+            <button onclick="adminInvite()">邀请</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 公告 -->
+      <div class="tab-content" id="tab-announce">
+        <div class="admin-section">
+          <h3>发送全体公告</h3>
+          <textarea class="announce-input" id="announce-text" placeholder="在这里输入公告内容，将发送给所有在线用户..."></textarea>
+          <button class="full-btn" onclick="adminAnnounce()">📢 发布公告</button>
+        </div>
+      </div>
+
+      <!-- 封禁管理 -->
+      <div class="tab-content" id="tab-ban">
+        <div class="admin-section">
+          <h3>封禁列表</h3>
+          <div id="ban-list-display" style="font-size:13px;color:var(--sub);min-height:40px"></div>
+        </div>
+        <div class="admin-section">
+          <h3>解封用户</h3>
+          <div class="form-row">
+            <input type="text" id="unban-name" placeholder="输入要解封的用户名">
+            <button class="danger-btn" onclick="adminUnban()">解封</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 状态 =====
+let ws = null;
+let myUsername = '';
+let myIsAdmin = false;
+let currentChannel = 'public'; // 'public' | 'group:xxx' | 'dm:xxx'
+let groups = {};
+let onlineUsers = [];
+let unreadCounts = {};
+let atBottom = true;
+let reconnectTimer = null;
+let WS_URL = 'ws://zyun.ink:9100';
+
+// ===== 登录 =====
+function login() {
+  const username = document.getElementById('username').value.trim();
+  const pass = document.getElementById('admin-pass').value;
+  if (!username) { showLoginError('请输入用户名'); return; }
+  connectWS(username, pass);
+}
+
+document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+document.getElementById('admin-pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+function showLoginError(msg) {
+  document.getElementById('login-error').textContent = msg;
+}
+
+// ===== WebSocket连接 =====
+function connectWS(username, password) {
+  if (ws) { ws.close(); ws = null; }
+  try {
+    ws = new WebSocket(WS_URL);
+  } catch(e) {
+    showLoginError('连接失败，请检查服务器是否启动');
+    return;
+  }
+
+  ws.onopen = () => {
+    clearTimeout(reconnectTimer);
+    document.getElementById('conn-bar').classList.remove('show');
+    ws.send(JSON.stringify({ type: 'login', username, password }));
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      handleMsg(msg);
+    } catch(ex) {}
+  };
+
+  ws.onclose = () => {
+    if (myUsername) {
+      document.getElementById('conn-bar').classList.add('show');
+      reconnectTimer = setTimeout(() => connectWS(myUsername, ''), 3000);
+    }
+  };
+
+  ws.onerror = () => {
+    if (!myUsername) showLoginError('无法连接服务器，请确认服务器已启动');
+  };
+}
+
+// ===== 处理服务器消息 =====
+function handleMsg(msg) {
+  switch(msg.type) {
+
+    case 'login_ok':
+      myUsername = msg.username;
+      myIsAdmin = msg.isAdmin;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('main-screen').style.display = 'flex';
+      document.getElementById('my-username').textContent = myUsername;
+      document.getElementById('my-role').textContent = myIsAdmin ? '管理员' : '用户';
+      document.getElementById('my-avatar').textContent = myUsername[0].toUpperCase();
+      if (myIsAdmin) {
+        document.getElementById('admin-btn').style.display = 'block';
+        document.getElementById('my-role').style.color = '#ffb84d';
+      }
+      // 处理群组
+      if (msg.groups) updateGroups(msg.groups);
+      // 加载历史消息
+      if (msg.history) msg.history.forEach(m => renderMsg(m));
+      scrollToBottom(true);
+      break;
+
+    case 'login_fail':
+      showLoginError(msg.message || '登录失败');
+      break;
+
+    case 'public_message':
+      addPublicMsg(msg);
+      break;
+
+    case 'private_message':
+      addPrivateMsg(msg);
+      break;
+
+    case 'group_message':
+      addGroupMsg(msg);
+      break;
+
+    case 'announcement':
+      addAnnouncement(msg);
+      break;
+
+    case 'system':
+      addSystemMsg(msg.message);
+      break;
+
+    case 'user_list':
+      onlineUsers = msg.users || [];
+      renderUserList();
+      renderAdminUserTable();
+      break;
+
+    case 'user_online':
+      if (!onlineUsers.find(u => u.username === msg.username)) {
+        onlineUsers.push({ username: msg.username, isAdmin: msg.isAdmin, isMuted: false });
+      }
+      renderUserList();
+      renderAdminUserTable();
+      addDmListItem(msg.username);
+      break;
+
+    case 'user_offline':
+      onlineUsers = onlineUsers.filter(u => u.username !== msg.username);
+      renderUserList();
+      renderAdminUserTable();
+      break;
+
+    case 'group_list':
+      if (msg.groups) updateGroups(msg.groups);
+      break;
+
+    case 'join_group_ok':
+      // 自动切换到该群
+      switchChannel('group:' + msg.groupId);
+      break;
+
+    case 'kicked':
+      alert('⚠️ ' + (msg.message || '您已被踢出'));
+      logout();
+      break;
+
+    case 'banned_list':
+      renderBanList(msg.users || []);
+      break;
+  }
+}
+
+// ===== 渲染消息 =====
+function renderMsg(msg) {
+  switch(msg.type) {
+    case 'public_message': addPublicMsg(msg); break;
+    case 'private_message': addPrivateMsg(msg); break;
+    case 'group_message': addGroupMsg(msg); break;
+    case 'system': addSystemMsg(msg.message); break;
+    case 'announcement': addAnnouncement(msg); break;
+  }
+}
+
+function addPublicMsg(msg) {
+  if (currentChannel !== 'public') {
+    bumpUnread('public');
+    return;
+  }
+  const isSelf = msg.from === myUsername;
+  appendMsg(msg.from, msg.message, isSelf, msg.isAdmin, msg.time, null, null);
+}
+
+function addPrivateMsg(msg) {
+  const partner = msg.from === myUsername ? msg.to : msg.from;
+  const key = 'dm:' + partner;
+  if (currentChannel !== key) {
+    bumpUnread(key);
+    addDmListItem(partner);
+  }
+  if (currentChannel === key || msg.from === myUsername || msg.to === myUsername) {
+    if (currentChannel !== key && msg.to === myUsername) {
+      addDmListItem(partner);
+      return;
+    }
+    if (currentChannel !== key) return;
+  }
+  const isSelf = msg.from === myUsername;
+  appendMsg(msg.from, msg.message, isSelf, false, msg.time, '私信', '#ff7eb3');
+}
+
+function addGroupMsg(msg) {
+  const key = 'group:' + msg.groupId;
+  if (currentChannel !== key) {
+    bumpUnread(key);
+    return;
+  }
+  const isSelf = msg.from === myUsername;
+  appendMsg(msg.from, msg.message, isSelf, false, msg.time, msg.groupName, '#7eb3ff');
+}
+
+function addAnnouncement(msg) {
+  const div = document.createElement('div');
+  div.className = 'msg announcement';
+  div.innerHTML = `<div class="msg-bubble announce">
+    <div class="announce-label">📢 管理员公告 · ${msg.from} · ${msg.time}</div>
+    <div>${escHtml(msg.message)}</div>
+  </div>`;
+  appendToMessages(div);
+}
+
+function addSystemMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'msg system-msg';
+  div.innerHTML = `<div class="msg-bubble system">${escHtml(text)}</div>`;
+  appendToMessages(div);
+}
+
+function appendMsg(from, text, isSelf, isAdmin, time, tag, tagColor) {
+  const div = document.createElement('div');
+  div.className = 'msg' + (isSelf ? ' self' : '');
+  const avatarChar = from[0].toUpperCase();
+  const adminTag = isAdmin ? `<span class="admin-tag">管理员</span>` : '';
+  const tagSpan = tag ? `<span class="private-tag" style="color:${tagColor};background:${tagColor}22">${tag}</span>` : '';
+  div.innerHTML = `
+    <div class="msg-avatar">${avatarChar}</div>
+    <div class="msg-body">
+      <div class="msg-meta">
+        <span class="msg-name">${escHtml(from)}</span>
+        ${adminTag}${tagSpan}
+        <span class="msg-time">${time || ''}</span>
+      </div>
+      <div class="msg-bubble">${escHtml(text)}</div>
+    </div>`;
+  appendToMessages(div);
+}
+
+function appendToMessages(el) {
+  const box = document.getElementById('messages');
+  box.appendChild(el);
+  if (atBottom) scrollToBottom(false);
+  else showScrollBtn();
+}
+
+function scrollToBottom(force) {
+  const box = document.getElementById('messages');
+  box.scrollTop = box.scrollHeight;
+  atBottom = true;
+  document.getElementById('scroll-btn').style.display = 'none';
+}
+function showScrollBtn() {
+  document.getElementById('scroll-btn').style.display = 'block';
+}
+
+document.getElementById('messages').addEventListener('scroll', function() {
+  const box = this;
+  atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  if (atBottom) document.getElementById('scroll-btn').style.display = 'none';
+});
+
+// ===== 未读提示 =====
+function bumpUnread(key) {
+  unreadCounts[key] = (unreadCounts[key] || 0) + 1;
+  renderSidebarBadges();
+}
+function clearUnread(key) {
+  unreadCounts[key] = 0;
+  renderSidebarBadges();
+}
+function renderSidebarBadges() {
+  // public
+  const pubEl = document.getElementById('tab-public');
+  let pubBadge = pubEl.querySelector('.badge');
+  if (unreadCounts['public'] > 0) {
+    if (!pubBadge) { pubBadge = document.createElement('span'); pubBadge.className = 'badge'; pubEl.appendChild(pubBadge); }
+    pubBadge.textContent = unreadCounts['public'];
+  } else if (pubBadge) pubBadge.remove();
+
+  // dm
+  document.querySelectorAll('[data-dm]').forEach(el => {
+    const key = 'dm:' + el.dataset.dm;
+    let b = el.querySelector('.badge');
+    if (unreadCounts[key] > 0) {
+      if (!b) { b = document.createElement('span'); b.className = 'badge'; el.appendChild(b); }
+      b.textContent = unreadCounts[key];
+    } else if (b) b.remove();
+  });
+
+  // groups
+  document.querySelectorAll('[data-group]').forEach(el => {
+    const key = 'group:' + el.dataset.group;
+    let b = el.querySelector('.badge');
+    if (unreadCounts[key] > 0) {
+      if (!b) { b = document.createElement('span'); b.className = 'badge'; el.appendChild(b); }
+      b.textContent = unreadCounts[key];
+    } else if (b) b.remove();
+  });
+}
+
+// ===== 切换频道 =====
+function switchChannel(ch) {
+  currentChannel = ch;
+  clearUnread(ch);
+
+  // 更新激活状态
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+
+  const messages = document.getElementById('messages');
+  messages.innerHTML = '';
+  atBottom = true;
+
+  const joinBtn = document.getElementById('join-group-btn');
+  joinBtn.style.display = 'none';
+
+  if (ch === 'public') {
+    document.getElementById('tab-public').classList.add('active');
+    document.getElementById('chat-title').textContent = '公共大厅';
+    document.getElementById('chat-sub').textContent = '所有人都可以看到这里的消息';
+    document.getElementById('input-hint').textContent = '当前：公共大厅';
+    ws.send(JSON.stringify({ type: 'get_group_list' }));
+  } else if (ch.startsWith('group:')) {
+    const gid = ch.slice(6);
+    const g = groups[gid];
+    if (g) {
+      document.getElementById('chat-title').textContent = '# ' + g.name;
+      document.getElementById('chat-sub').textContent = `群组 · ${g.count} 成员`;
+      document.getElementById('input-hint').textContent = '当前：' + g.name;
+      if (!g.joined) {
+        joinBtn.style.display = 'inline-block';
+      }
+    }
+    const el = document.querySelector(`[data-group="${gid}"]`);
+    if (el) el.classList.add('active');
+  } else if (ch.startsWith('dm:')) {
+    const partner = ch.slice(3);
+    document.getElementById('chat-title').textContent = '💬 ' + partner;
+    document.getElementById('chat-sub').textContent = '私信对话';
+    document.getElementById('input-hint').textContent = '当前：与 ' + partner + ' 私信';
+    const el = document.querySelector(`[data-dm="${partner}"]`);
+    if (el) el.classList.add('active');
+  }
+
+  addSystemMsg('已切换到 ' + document.getElementById('chat-title').textContent);
+}
+
+function joinCurrentGroup() {
+  if (!currentChannel.startsWith('group:')) return;
+  const gid = currentChannel.slice(6);
+  ws.send(JSON.stringify({ type: 'join_group', groupId: gid }));
+  document.getElementById('join-group-btn').style.display = 'none';
+}
+
+// ===== 群组列表 =====
+function updateGroups(list) {
+  groups = {};
+  list.forEach(g => { groups[g.id] = g; });
+  renderGroupList();
+  updateAdminGroupSelects();
+}
+
+function renderGroupList() {
+  const el = document.getElementById('group-list');
+  el.innerHTML = '';
+  Object.values(groups).forEach(g => {
+    const div = document.createElement('div');
+    div.className = 'sidebar-item' + (currentChannel === 'group:' + g.id ? ' active' : '');
+    div.dataset.group = g.id;
+    div.innerHTML = `<span class="icon">💬</span><span class="label">${escHtml(g.name)}</span>`;
+    div.onclick = () => switchChannel('group:' + g.id);
+    el.appendChild(div);
+  });
+  renderSidebarBadges();
+}
+
+// ===== 私信列表 =====
+const dmPartners = new Set();
+function addDmListItem(partner) {
+  if (partner === myUsername || dmPartners.has(partner)) return;
+  dmPartners.add(partner);
+  const el = document.getElementById('dm-list');
+  const div = document.createElement('div');
+  div.className = 'sidebar-item' + (currentChannel === 'dm:' + partner ? ' active' : '');
+  div.dataset.dm = partner;
+  div.innerHTML = `<span class="icon">👤</span><span class="label">${escHtml(partner)}</span>`;
+  div.onclick = () => switchChannel('dm:' + partner);
+  el.appendChild(div);
+}
+
+// ===== 在线用户列表 =====
+function renderUserList() {
+  const el = document.getElementById('user-list-panel');
+  document.getElementById('online-count').textContent = onlineUsers.length;
+  el.innerHTML = '';
+  onlineUsers.forEach(u => {
+    const div = document.createElement('div');
+    div.className = 'user-item';
+    div.innerHTML = `
+      <span class="online-dot"></span>
+      <span class="u-name">${escHtml(u.username)}${u.isAdmin ? ' 👑' : ''}</span>
+      ${u.isMuted ? '<span class="muted-tag">禁言</span>' : ''}`;
+    div.onclick = () => {
+      if (u.username !== myUsername) {
+        addDmListItem(u.username);
+        switchChannel('dm:' + u.username);
+      }
+    };
+    el.appendChild(div);
+  });
+}
+
+// ===== 发送消息 =====
+function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+
+  if (currentChannel === 'public') {
+    ws.send(JSON.stringify({ type: 'public_message', message: text }));
+  } else if (currentChannel.startsWith('dm:')) {
+    const to = currentChannel.slice(3);
+    ws.send(JSON.stringify({ type: 'private_message', to, message: text }));
+  } else if (currentChannel.startsWith('group:')) {
+    const groupId = currentChannel.slice(6);
+    ws.send(JSON.stringify({ type: 'group_message', groupId, message: text }));
+  }
+
+  input.value = '';
+  autoResize(input);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function refreshLists() {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'get_user_list' }));
+    ws.send(JSON.stringify({ type: 'get_group_list' }));
+  }
+}
+
+// ===== 管理员面板 =====
+function openAdmin() {
+  if (!myIsAdmin) return;
+  document.getElementById('admin-modal').classList.add('show');
+  refreshLists();
+  ws.send(JSON.stringify({ type: 'get_banned_list' }));
+  renderAdminUserTable();
+  renderAdminGroupTable();
+}
+function closeAdmin() {
+  document.getElementById('admin-modal').classList.remove('show');
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.modal-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  const tabs = ['tab-users','tab-groups','tab-announce','tab-ban'];
+  const idx = tabs.indexOf(tabId);
+  document.querySelectorAll('.modal-tab')[idx].classList.add('active');
+  if (tabId === 'tab-ban') ws.send(JSON.stringify({ type: 'get_banned_list' }));
+}
+
+function renderAdminUserTable() {
+  const tbody = document.getElementById('admin-user-table');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  onlineUsers.forEach(u => {
+    if (u.username === myUsername) return;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escHtml(u.username)}</strong>${u.isAdmin ? ' 👑' : ''}</td>
+      <td><span class="status-dot ${u.isMuted ? 'dot-muted' : 'dot-on'}"></span> ${u.isMuted ? '<span style="color:var(--danger)">禁言中</span>' : '在线'}</td>
+      <td>
+        <button class="act-btn kick" onclick="adminKick('${escAttr(u.username)}')">踢出</button>
+        <button class="act-btn mute" onclick="adminMute('${escAttr(u.username)}', ${!u.isMuted})">${u.isMuted ? '解禁言' : '禁言'}</button>
+        <button class="act-btn ban" onclick="adminBan('${escAttr(u.username)}')">封禁</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  if (tbody.innerHTML === '') tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--sub);padding:16px">暂无其他在线用户</td></tr>';
+}
+
+function renderAdminGroupTable() {
+  const tbody = document.getElementById('admin-group-table');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  Object.entries(groups).forEach(([gid, g]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escHtml(g.name)}</strong></td>
+      <td>${g.count} 人</td>
+      <td>${gid !== 'public' ? `<button class="act-btn del" onclick="adminDeleteGroup('${escAttr(gid)}','${escAttr(g.name)}')">解散</button>` : '（默认）'}</td>`;
+    tbody.appendChild(tr);
+  });
+  if (tbody.innerHTML === '') tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--sub);padding:16px">暂无群组</td></tr>';
+}
+
+function updateAdminGroupSelects() {
+  renderAdminGroupTable();
+  const invGrp = document.getElementById('invite-group-sel');
+  if (invGrp) {
+    invGrp.innerHTML = '';
+    Object.entries(groups).forEach(([gid, g]) => {
+      const opt = document.createElement('option');
+      opt.value = gid; opt.textContent = g.name;
+      invGrp.appendChild(opt);
+    });
+  }
+  const invUser = document.getElementById('invite-user-sel');
+  if (invUser) {
+    invUser.innerHTML = '';
+    onlineUsers.forEach(u => {
+      if (u.username === myUsername) return;
+      const opt = document.createElement('option');
+      opt.value = u.username; opt.textContent = u.username;
+      invUser.appendChild(opt);
+    });
+  }
+}
+
+function renderBanList(users) {
+  const el = document.getElementById('ban-list-display');
+  if (!el) return;
+  if (users.length === 0) {
+    el.textContent = '暂无封禁用户';
+    return;
+  }
+  el.innerHTML = users.map(u => `<span style="display:inline-block;margin:3px;padding:3px 8px;background:var(--sidebar);border:1px solid var(--border);border-radius:4px">${escHtml(u)}</span>`).join('');
+}
+
+// 管理操作
+function adminKick(username) {
+  if (!confirm(`确认踢出用户「${username}」？`)) return;
+  ws.send(JSON.stringify({ type: 'admin_kick', username }));
+}
+function adminMute(username, mute) {
+  ws.send(JSON.stringify({ type: 'admin_mute', username, mute }));
+  setTimeout(renderAdminUserTable, 300);
+}
+function adminBan(username) {
+  if (!confirm(`确认封禁用户「${username}」？封禁后该用户名无法登录。`)) return;
+  ws.send(JSON.stringify({ type: 'admin_ban', username }));
+}
+function adminUnban() {
+  const name = document.getElementById('unban-name').value.trim();
+  if (!name) return alert('请输入用户名');
+  ws.send(JSON.stringify({ type: 'admin_unban', username: name }));
+  document.getElementById('unban-name').value = '';
+  setTimeout(() => ws.send(JSON.stringify({ type: 'get_banned_list' })), 300);
+}
+function adminCreateGroup() {
+  const name = document.getElementById('new-group-name').value.trim();
+  if (!name) return alert('请输入群组名称');
+  ws.send(JSON.stringify({ type: 'admin_create_group', groupName: name }));
+  document.getElementById('new-group-name').value = '';
+  setTimeout(() => { ws.send(JSON.stringify({ type: 'get_group_list' })); updateAdminGroupSelects(); }, 300);
+}
+function adminDeleteGroup(groupId, groupName) {
+  if (!confirm(`确认解散群组「${groupName}」？`)) return;
+  ws.send(JSON.stringify({ type: 'admin_delete_group', groupId }));
+  setTimeout(() => { ws.send(JSON.stringify({ type: 'get_group_list' })); renderAdminGroupTable(); }, 300);
+}
+function adminInvite() {
+  const username = document.getElementById('invite-user-sel').value;
+  const groupId = document.getElementById('invite-group-sel').value;
+  if (!username || !groupId) return alert('请选择用户和群组');
+  ws.send(JSON.stringify({ type: 'admin_invite_group', username, groupId }));
+}
+function adminAnnounce() {
+  const text = document.getElementById('announce-text').value.trim();
+  if (!text) return alert('请输入公告内容');
+  ws.send(JSON.stringify({ type: 'admin_announcement', message: text }));
+  document.getElementById('announce-text').value = '';
+}
+
+// 退出
+function logout() {
+  if (ws) { ws.close(); ws = null; }
+  myUsername = ''; myIsAdmin = false;
+  currentChannel = 'public';
+  groups = {}; onlineUsers = []; dmPartners.clear(); unreadCounts = {};
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('group-list').innerHTML = '';
+  document.getElementById('dm-list').innerHTML = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('conn-bar').classList.remove('show');
+}
+
+// 工具函数
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) {
+  return String(str).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
